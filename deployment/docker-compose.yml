@@ -1,0 +1,54 @@
+services:
+  hermes-engineer-a:
+    image: nousresearch/hermes-agent:latest
+    container_name: hermes-engineer-a
+    networks: [hermes-net]
+    stdin_open: true
+    tty: true
+    environment:
+      HERMES_DASHBOARD: "true"
+      HERMES_DASHBOARD_HOST: "0.0.0.0"
+      HERMES_DASHBOARD_PORT: "9119"
+      HERMES_DASHBOARD_INSECURE: "true"
+      OPENAI_API_KEY: "${LITELLM_MASTER_KEY}"
+      OPENAI_API_BASE: "http://hermes-litellm-proxy:4000"
+    volumes:
+      - /data/hermes/profiles/engineer-a:/root/.hermes
+      - /data/hermes/state/engineer-a:/opt/data
+      - /data/datasets:/opt/datasets:ro
+      - /data/outputs/engineer-a:/opt/outputs
+    ports:
+      - "127.0.0.1:11101:9119"
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [SETGID, SETUID, DAC_OVERRIDE]
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m
+      - /run:size=64m,exec
+    mem_limit: 4g 
+    restart: unless-stopped
+
+  hermes-wrapper:
+    build: /data/hermes-wrapper
+    container_name: hermes-wrapper
+    networks: [hermes-net]
+    ports:
+      - "127.0.0.1:5000:5000"
+    environment:
+      WRAPPER_API_KEY: "${WRAPPER_API_KEY}"
+      LITELLM_KEY: "${LITELLM_MASTER_KEY}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /data/hermes:/data/hermes
+      - /data/logs:/data/logs
+      - /data/outputs:/data/outputs
+      - /data/datasets:/data/datasets
+      - /data/docker/volumes/open-webui/_data:/data/webui-data:ro
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    restart: unless-stopped
+
+networks:
+  hermes-net:
+    external: true

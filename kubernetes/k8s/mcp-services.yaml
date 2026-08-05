@@ -1,0 +1,256 @@
+# All MCP sidecar services
+# Each needs its ACR image tag — fill in ACR_NAME below if applying manually,
+# or use the deploy script which substitutes it.
+
+---
+# hermes-mailpit-mcp — wraps Mailpit REST API as MCP endpoints
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-mailpit-mcp
+  namespace: hermes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hermes-mailpit-mcp
+  template:
+    metadata:
+      labels:
+        app: hermes-mailpit-mcp
+    spec:
+      containers:
+        - name: hermes-mailpit-mcp
+          image: ACR_LOGIN_SERVER/hermes-mailpit-mcp:latest
+          ports:
+            - containerPort: 8085
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-mailpit-mcp
+  namespace: hermes
+spec:
+  selector:
+    app: hermes-mailpit-mcp
+  ports:
+    - port: 8085
+      targetPort: 8085
+
+---
+# hermes-gmail-mcp — Gmail + Google Calendar OAuth bridge
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-gmail-mcp
+  namespace: hermes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hermes-gmail-mcp
+  template:
+    metadata:
+      labels:
+        app: hermes-gmail-mcp
+    spec:
+      containers:
+        - name: hermes-gmail-mcp
+          image: ACR_LOGIN_SERVER/hermes-gmail-mcp:latest
+          ports:
+            - containerPort: 8084
+          volumeMounts:
+            - name: tokens
+              mountPath: /data/tokens
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+      volumes:
+        - name: tokens
+          persistentVolumeClaim:
+            claimName: hermes-gmail-tokens
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes-gmail-tokens
+  namespace: hermes
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: managed-premium
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-gmail-mcp
+  namespace: hermes
+spec:
+  selector:
+    app: hermes-gmail-mcp
+  ports:
+    - port: 8084
+      targetPort: 8084
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes-graph-tokens
+  namespace: hermes
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: managed-premium
+  resources:
+    requests:
+      storage: 1Gi
+---
+# hermes-graph-mcp — Microsoft Graph API bridge
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-graph-mcp
+  namespace: hermes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hermes-graph-mcp
+  template:
+    metadata:
+      labels:
+        app: hermes-graph-mcp
+    spec:
+      containers:
+        - name: hermes-graph-mcp
+          image: ACR_LOGIN_SERVER/hermes-graph-mcp:latest
+          ports:
+            - containerPort: 8083
+          env:
+            - name: AZURE_CLIENT_ID
+              value: "<YOUR_AZURE_CLIENT_ID>"
+            - name: AZURE_TENANT_ID
+              value: "<YOUR_AZURE_TENANT_ID>"
+          volumeMounts:
+            - name: graph-tokens
+              mountPath: /data
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+      volumes:
+        - name: graph-tokens
+          persistentVolumeClaim:
+            claimName: hermes-graph-tokens
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-graph-mcp
+  namespace: hermes
+spec:
+  selector:
+    app: hermes-graph-mcp
+  ports:
+    - port: 8083
+      targetPort: 8083
+
+---
+# hermes-framework-mcp
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-framework-mcp
+  namespace: hermes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hermes-framework-mcp
+  template:
+    metadata:
+      labels:
+        app: hermes-framework-mcp
+    spec:
+      containers:
+        - name: hermes-framework-mcp
+          image: ACR_LOGIN_SERVER/hermes-framework-mcp:latest
+          ports:
+            - containerPort: 8082
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-framework-mcp
+  namespace: hermes
+spec:
+  selector:
+    app: hermes-framework-mcp
+  ports:
+    - port: 8082
+      targetPort: 8082
+
+---
+# hermes-cve-mcp
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-cve-mcp
+  namespace: hermes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hermes-cve-mcp
+  template:
+    metadata:
+      labels:
+        app: hermes-cve-mcp
+    spec:
+      containers:
+        - name: hermes-cve-mcp
+          image: ACR_LOGIN_SERVER/hermes-cve-mcp:latest
+          ports:
+            - containerPort: 8081
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-cve-mcp
+  namespace: hermes
+spec:
+  selector:
+    app: hermes-cve-mcp
+  ports:
+    - port: 8081
+      targetPort: 8081

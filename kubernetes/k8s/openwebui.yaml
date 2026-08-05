@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: openwebui
+  namespace: hermes
+spec:
+  serviceName: openwebui
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openwebui
+  template:
+    metadata:
+      labels:
+        app: openwebui
+    spec:
+      containers:
+        - name: openwebui
+          image: ghcr.io/open-webui/open-webui:main
+          envFrom:
+            - secretRef:
+                name: openwebui-env
+            - secretRef:
+                name: litellm-env
+          env:
+            - name: OPENAI_API_BASE_URL
+              value: "http://hermes-wrapper:5000/v1"
+            - name: OPENAI_API_KEY
+              value: "<WRAPPER_API_KEY>"
+            - name: SSL_CERT_FILE
+              value: /etc/ssl/certs/certbundle.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/ssl/certs/certbundle.crt
+            - name: DATABASE_URL
+              value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@litellm-postgres:5432/webui"
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: webui-data
+              mountPath: /app/backend/data
+            - name: hermes-cert
+              mountPath: /etc/ssl/certs/certbundle.crt
+              subPath: certbundle.crt
+          resources:
+            limits:
+              memory: "2Gi"
+              cpu: "2"
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 30
+      volumes:
+        - name: hermes-cert
+          secret:
+            secretName: hermes-cert
+  volumeClaimTemplates:
+    - metadata:
+        name: webui-data
+      spec:
+        # Azure Disk (ReadWriteOnce) — DB is Postgres, no SQLite/SMB locking issues
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: managed-premium
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openwebui
+  namespace: hermes
+spec:
+  selector:
+    app: openwebui
+  ports:
+    - port: 8080
+      targetPort: 8080

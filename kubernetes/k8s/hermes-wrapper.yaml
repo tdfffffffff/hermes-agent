@@ -1,0 +1,81 @@
+---
+# PVC for wrapper's own data: api-keys.json, skills-template, profile templates
+# Uses Azure Files (ReadWriteMany) so it can also be read by debug pods if needed
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes-wrapper-data
+  namespace: hermes
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: azurefile-csi
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-wrapper
+  namespace: hermes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hermes-wrapper
+  template:
+    metadata:
+      labels:
+        app: hermes-wrapper
+    spec:
+      serviceAccountName: hermes-wrapper-sa
+      containers:
+        - name: hermes-wrapper
+          image: ACR_LOGIN_SERVER/hermes-wrapper:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: WRAPPER_API_KEY
+              value: "<WRAPPER_API_KEY>"
+            - name: LITELLM_KEY
+              value: "<LITELLM_MASTER_KEY>"
+            - name: K8S_NAMESPACE
+              value: "hermes"
+            - name: ACR_SERVER
+              value: "ACR_LOGIN_SERVER"
+            - name: PVC_STORAGE_CLASS
+              value: "managed-premium"
+          volumeMounts:
+            # Wrapper's own data: api-keys.json, skills-template, profile templates
+            - name: wrapper-data
+              mountPath: /data/hermes
+              subPath: hermes
+          resources:
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: wrapper-data
+          persistentVolumeClaim:
+            claimName: hermes-wrapper-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-wrapper
+  namespace: hermes
+spec:
+  selector:
+    app: hermes-wrapper
+  ports:
+    - port: 5000
+      targetPort: 5000

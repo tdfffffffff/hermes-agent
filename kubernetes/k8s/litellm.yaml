@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-litellm-proxy
+  namespace: hermes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hermes-litellm-proxy
+  template:
+    metadata:
+      labels:
+        app: hermes-litellm-proxy
+    spec:
+      containers:
+        - name: litellm
+          image: hermesakstdf.azurecr.io/litellm:latest
+          args: ["--config", "/app/config.yaml", "--detailed_debug"]
+          envFrom:
+            - secretRef:
+                name: litellm-env
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://litellm:$(POSTGRES_PASSWORD)@litellm-postgres:5432/litellm"
+            - name: SSL_CERT_FILE
+              value: /etc/ssl/certs/certbundle.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/ssl/certs/certbundle.crt
+          ports:
+            - containerPort: 4000
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+            - name: hermes-cert
+              mountPath: /etc/ssl/certs/certbundle.crt
+              subPath: certbundle.crt
+          resources:
+            limits:
+              memory: "3Gi"
+              cpu: "2"
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+      volumes:
+        - name: config
+          configMap:
+            name: litellm-config
+        - name: hermes-cert
+          secret:
+            secretName: hermes-cert
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-litellm-proxy
+  namespace: hermes
+spec:
+  selector:
+    app: hermes-litellm-proxy
+  ports:
+    - port: 4000
+      targetPort: 4000

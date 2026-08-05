@@ -1,0 +1,13 @@
+# Shared read-only datasets PVC — mounted into every user pod at /opt/datasets
+# Populated once during migration (04-migrate-data.sh)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes-datasets
+  namespace: hermes
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: azurefile-csi
+  resources:
+    requests:
+      storage: 2Gi

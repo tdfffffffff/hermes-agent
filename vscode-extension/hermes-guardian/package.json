@@ -1,0 +1,86 @@
+{
+  "name": "hermes-guardian",
+  "displayName": "Hermes Guardian",
+  "description": "Hermes security scanner for VS Code",
+  "version": "0.0.8",
+  "publisher": "hermes-platform",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Hermes Guardian",
+      "properties": {
+        "hermesGuardian.containerName": {
+          "type": "string",
+          "default": "",
+          "description": "Optional when using a personal sk-hermes-* API key. Required only when using the shared wrapper key (e.g. hermes-engineer-a)."
+        },
+        "hermesGuardian.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Your Hermes API key. Use your personal sk-hermes-* key for automatic container routing (no Container Name needed). Alternatively, use the shared wrapper key with Container Name set."
+        },
+        "hermesGuardian.port": {
+          "type": "number",
+          "default": 5000,
+          "description": "Hermes wrapper port (default 5000 via SSH tunnel)."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "hermes.scanFile",
+        "title": "Run Guardian Scan"
+      },
+      {
+        "command": "hermes.legacyReview",
+        "title": "Run Legacy Code Review (Python/Bash only)"
+      },
+      {
+        "command": "hermes.feedbackDigest",
+        "title": "Run Guardian Feedback Digest"
+      },
+      {
+        "command": "hermes.complianceMapper",
+        "title": "Run Compliance Mapper"
+      },
+      {
+        "command": "hermes.tabletopGenerator",
+        "title": "Run Tabletop Generator"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "hermes.scanFile",
+          "group": "hermes@1"
+        },
+        {
+          "command": "hermes.legacyReview",
+          "group": "hermes@2"
+        },
+        {
+          "command": "hermes.complianceMapper",
+          "group": "hermes@3"
+        },
+        {
+          "command": "hermes.tabletopGenerator",
+          "group": "hermes@4"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.0.0"
+  }
+}
