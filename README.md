@@ -1,6 +1,6 @@
 # Hermes Agentic AI Platform
 
-**Internship Project — [Organisation]**
+**Internship Project (Sanitised)**
 Author: Tan Dan Feng | Supervisor: Toh Leong Seng | Jul 2026
 
 > Exploration of Agentic AI Platforms and Security Hardening: a hardened, multi-user agentic AI platform built on Hermes Agent, with two operational use cases for analysts.
