@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hermes Agent — Deployment Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: white;
+    }
+    .container { max-width: 1580px; margin: 0 auto; }
+    .header { margin-bottom: 2rem; }
+    .header-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+    .pulse-dot {
+      width: 12px; height: 12px; background: #22d3ee; border-radius: 50%;
+      animation: pulse 2s infinite; flex-shrink: 0;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; box-shadow: 0 0 0 0 rgba(34,211,238,0.4); }
+      50%      { opacity:.7; box-shadow: 0 0 0 6px rgba(34,211,238,0); }
+    }
+    h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.025em; }
+    .subtitle { color: #94a3b8; font-size: .875rem; margin-left: 1.75rem; }
+    .diagram-wrap {
+      background: rgba(15,23,42,0.5); border-radius: 1rem;
+      border: 1px solid #1e293b; padding: 1.5rem; overflow-x: auto;
+    }
+    svg { width: 100%; min-width: 1200px; display: block; }
+    .cards {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr));
+      gap: 1rem; margin-top: 2rem;
+    }
+    .card {
+      background: rgba(15,23,42,0.5); border-radius: .75rem;
+      border: 1px solid #1e293b; padding: 1.25rem;
+    }
+    .card-header { display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .card h3 { font-size: .875rem; font-weight: 600; }
+    .card ul { list-style: none; color: #94a3b8; font-size: .75rem; }
+    .card li { margin-bottom: .375rem; }
+    .footer { text-align: center; margin-top: 1.5rem; color: #475569; font-size: .75rem; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="header-row">
+      <div class="pulse-dot"></div>
+      <h1>Hermes Agent — Deployment Architecture</h1>
+    </div>
+    <p class="subtitle">Hardened multi-user agentic AI platform · Azure Bastion access · per-user container isolation · 5 MCP tool servers</p>
+  </div>
+
+  <div class="diagram-wrap">
+    <!--
+      ViewBox : 0 0 1600 1080
+      ─────────────────────────────────────────────────────────────
+      Left security panel   x=10   w=192  x2=202
+      Main content          x=212  w=1176 cx=800 x2=1388
+      Right routing gutter  x=1388 w=202
+
+      Y layout
+        Bastion banner       14 –  32
+        Client tier          40 – 126   h=86
+        arrow               126 – 164
+        OpenWebUI           164 – 256   h=92
+        arrow               256 – 296
+        Wrapper             296 – 418   h=122
+        arrows              418 – 458
+        Agents (3 boxes)    458 – 572   h=114
+        hermes-net bar      586 – 606   h=20
+        arrows              606 – 628
+        LiteLLM (left)      630 – 730   h=100   x=212  w=522  cx=473
+        MCPs (5 boxes)      630 – 730   h=100   x=746  w=642
+          Each w=118, gap=12
+          x: 746  876  1006  1136  1264   cx: 805  935  1065  1195  1323
+        iptables band       748 – 788   h=40
+        Azure AI Foundry    804 – 974   h=170  x=212  w=522
+        External APIs       804 – 974   h=170  x=746  w=636
+          NVD   x=750  w=188  cx=844   (near CVE   cx=805)
+          MS    x=958  w=200  cx=1058  (near Graph cx=1065)
+          Google x=1178 w=198  cx=1277  (near Gmail cx=1195)
+        Legend             994 – 1050
+    -->
+    <svg viewBox="0 -14 1600 1096">
+      <defs>
+        <marker id="ar"    markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64748b"/></marker>
+        <marker id="ar-cy" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#22d3ee"/></marker>
+        <marker id="ar-em" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#34d399"/></marker>
+        <marker id="ar-vi" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#a78bfa"/></marker>
+        <marker id="ar-am" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#fbbf24"/></marker>
+        <marker id="ar-sk" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#38bdf8"/></marker>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M40 0L0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+        </pattern>
+      </defs>
+
+      <!-- Background -->
+      <rect width="1600" height="1060" fill="url(#grid)"/>
+
+      <!-- ══ VM boundary ══ -->
+      <rect x="8" y="8" width="1584" height="790" rx="14"
+            fill="rgba(15,23,42,0.18)" stroke="#334155" stroke-width="1.2" stroke-dasharray="10,5"/>
+      <text x="24" y="-2" fill="#475569" font-size="9" font-family="JetBrains Mono,monospace" font-weight="600">
+        Azure VM  ·  hermes-sandbox-01  ·  Standard_D8as_v5 (8 vCPU 32 GB)  ·  No public IP  ·  hermes-net 172.20.0.0/16
+      </text>
+
+      <!-- ══ Azure AI Foundry boundary ══ -->
+      <rect x="212" y="824" width="522" height="170" rx="12"
+            fill="rgba(120,53,15,0.10)" stroke="#fbbf24" stroke-width="1.2" stroke-dasharray="8,4"/>
+      <text x="228" y="841" fill="#fbbf24" font-size="10" font-family="JetBrains Mono,monospace" font-weight="600">Azure AI Foundry</text>
+
+      <!-- ══ External APIs boundary ══ -->
+      <rect x="746" y="824" width="632" height="170" rx="12"
+            fill="rgba(56,189,248,0.06)" stroke="#38bdf8" stroke-width="1.2" stroke-dasharray="8,4"/>
+      <text x="762" y="841" fill="#38bdf8" font-size="10" font-family="JetBrains Mono,monospace" font-weight="600">External APIs  ·  HTTPS :443  (outbound via UFW)</text>
+
+      <!-- ══════════════════════════════════════════
+           FLOW ARROWS
+           ══════════════════════════════════════════ -->
+
+      <!-- Browser → OpenWebUI (vertical, cx=471) -->
+      <line x1="471" y1="126" x2="471" y2="162" stroke="#22d3ee" stroke-width="2" marker-end="url(#ar-cy)"/>
+      <text x="480" y="148" fill="#94a3b8" font-size="9" font-family="JetBrains Mono,monospace">HTTP :3000</text>
+
+      <!-- VS Code → Wrapper: right-gutter route, stays outside main content area (x>1388) -->
+      <path d="M 1388 83 L 1440 83 L 1440 357 L 1388 357"
+            fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="7,3" marker-end="url(#ar-sk)"/>
+      <text x="1448" y="230" fill="#38bdf8" font-size="8.5" font-family="JetBrains Mono,monospace"
+            transform="rotate(90,1448,230)">direct :5000</text>
+
+      <!-- OpenWebUI → Wrapper -->
+      <line x1="800" y1="256" x2="800" y2="294" stroke="#34d399" stroke-width="2" marker-end="url(#ar-em)"/>
+      <text x="810" y="279" fill="#94a3b8" font-size="9" font-family="JetBrains Mono,monospace">OpenAI-compat API :5000  ·  X-OpenWebUI-User-Name header</text>
+
+      <!-- Wrapper → Agent A, B, N -->
+      <line x1="370"  y1="418" x2="370"  y2="456" stroke="#34d399" stroke-width="2" marker-end="url(#ar-em)"/>
+      <line x1="697"  y1="418" x2="697"  y2="456" stroke="#34d399" stroke-width="2" marker-end="url(#ar-em)"/>
+      <line x1="1130" y1="418" x2="1130" y2="456" stroke="#34d399" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#ar-em)"/>
+      <text x="800" y="442" fill="#94a3b8" font-size="9" text-anchor="middle" font-family="JetBrains Mono,monospace">docker exec  ·  container resolved from X-OpenWebUI-User-Name</text>
+
+      <!-- Agents → hermes-net bar -->
+      <line x1="370"  y1="572" x2="370"  y2="584" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#ar-sk)"/>
+      <line x1="697"  y1="572" x2="697"  y2="584" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#ar-sk)"/>
+      <line x1="1130" y1="572" x2="1130" y2="584" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ar-sk)"/>
+
+      <!-- hermes-net → LiteLLM -->
+      <line x1="473" y1="606" x2="473" y2="628" stroke="#a78bfa" stroke-width="2" marker-end="url(#ar-vi)"/>
+      <text x="212" y="622" fill="#a78bfa" font-size="8.5" font-family="JetBrains Mono,monospace">LLM calls :4000</text>
+
+      <!-- hermes-net → MCPs (centre of MCP cluster) -->
+      <line x1="1065" y1="606" x2="1065" y2="628" stroke="#38bdf8" stroke-width="2" marker-end="url(#ar-sk)"/>
+      <text x="1075" y="622" fill="#38bdf8" font-size="8.5" font-family="JetBrains Mono,monospace">MCP tool calls (HTTP)</text>
+
+      <!-- LiteLLM → iptables -->
+      <line x1="473" y1="730" x2="473" y2="746" stroke="#fbbf24" stroke-width="2" marker-end="url(#ar-am)"/>
+
+      <!-- iptables → Azure AI Foundry (more gap below band) -->
+      <line x1="473" y1="788" x2="473" y2="822" stroke="#fbbf24" stroke-width="2" marker-end="url(#ar-am)"/>
+      <text x="483" y="810" fill="#94a3b8" font-size="9" font-family="JetBrains Mono,monospace">HTTPS :443</text>
+
+      <!-- MCPs → iptables (only the 3 that call external APIs) -->
+      <line x1="805"  y1="732" x2="805"  y2="746" stroke="#38bdf8" stroke-width="1.2" marker-end="url(#ar-sk)"/>
+      <line x1="1065" y1="732" x2="1065" y2="746" stroke="#38bdf8" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#ar-sk)"/>
+      <line x1="1195" y1="732" x2="1195" y2="746" stroke="#38bdf8" stroke-width="1.2" marker-end="url(#ar-sk)"/>
+
+      <!-- iptables → External API boxes (generous gap below band) -->
+      <line x1="805"  y1="788" x2="844"  y2="822" stroke="#38bdf8" stroke-width="1.2" marker-end="url(#ar-sk)"/>
+      <line x1="1065" y1="788" x2="1058" y2="822" stroke="#38bdf8" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#ar-sk)"/>
+      <line x1="1195" y1="788" x2="1277" y2="822" stroke="#38bdf8" stroke-width="1.2" marker-end="url(#ar-sk)"/>
+
+      <!-- ══════════════════════════════════════════
+           BASTION BANNER
+           ══════════════════════════════════════════ -->
+      <rect x="212" y="14" width="1176" height="18" rx="4"
+            fill="rgba(251,113,133,0.08)" stroke="#fb7185" stroke-width="0.8" stroke-dasharray="4,3"/>
+      <text x="800" y="27" fill="#fb7185" font-size="8.5" text-anchor="middle" font-family="JetBrains Mono,monospace" font-weight="600">
+        ↕  All access via Azure Bastion SSH Tunnel (port 2222)  ·  start-hermes-tunnel.sh  ·  No direct internet access to VM
+      </text>
+
+      <!-- ══════════════════════════════════════════
+           TIER 1 · CLIENT
+           ══════════════════════════════════════════ -->
+      <!-- Browser (left half) -->
+      <rect x="212" y="40" width="522" height="86" rx="8"
+            fill="rgba(30,41,59,0.55)" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="473" y="68" fill="white" font-size="13" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">Analyst Browser</text>
+      <text x="473" y="86" fill="#94a3b8" font-size="10" text-anchor="middle" font-family="JetBrains Mono,monospace">Chrome / Edge · localhost:3000</text>
+      <text x="473" y="103" fill="#64748b" font-size="8.5" text-anchor="middle" font-family="JetBrains Mono,monospace">Access via Azure Bastion tunnel</text>
+
+      <!-- VS Code (right half, ends at x2=1388=main content right edge) -->
+      <rect x="746" y="40" width="642" height="86" rx="8"
+            fill="rgba(30,41,59,0.55)" stroke="#38bdf8" stroke-width="1.5"/>
+      <text x="1067" y="68" fill="white" font-size="13" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">VS Code + Hermes Guardian Extension</text>
+      <text x="1067" y="86" fill="#38bdf8" font-size="10" text-anchor="middle" font-family="JetBrains Mono,monospace">Connects directly to Wrapper :5000  ·  bypasses OpenWebUI</text>
+      <text x="1067" y="103" fill="#64748b" font-size="8.5" text-anchor="middle" font-family="JetBrains Mono,monospace">Inline code security scanning  ·  Access via Bastion tunnel</text>
+
+      <!-- ══════════════════════════════════════════
+           TIER 2 · OPENWEBUI
+           ══════════════════════════════════════════ -->
+      <rect x="10" y="162" width="192" height="96" rx="6"
+            fill="rgba(136,19,55,0.12)" stroke="#fb7185" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="22" y="180" fill="#fb7185" font-size="8" font-weight="600" font-family="JetBrains Mono,monospace">Security Controls</text>
+      <text x="22" y="196" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· Loopback-only :3000</text>
+      <text x="22" y="211" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· User login required</text>
+      <text x="22" y="226" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· Forwards user identity</text>
+      <text x="22" y="248" fill="#64748b" font-size="7.5" font-style="italic" font-family="JetBrains Mono,monospace">OpenWebUI patch applied</text>
+
+      <rect x="212" y="164" width="1176" height="92" rx="8"
+            fill="rgba(8,51,68,0.45)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="800" y="194" fill="white" font-size="14" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">OpenWebUI</text>
+      <text x="800" y="212" fill="#22d3ee" font-size="10" text-anchor="middle" font-family="JetBrains Mono,monospace">Browser-based chat interface · port 3000 (loopback only)</text>
+      <text x="800" y="229" fill="#94a3b8" font-size="9" text-anchor="middle" font-family="JetBrains Mono,monospace">User authentication · conversation history · skill / model selection</text>
+      <text x="800" y="245" fill="#64748b" font-size="8.5" text-anchor="middle" font-family="JetBrains Mono,monospace">ENABLE_FORWARD_USER_INFO_HEADERS=true · DEFAULT_USER_ROLE=user · DEFAULT_MODELS=hermes-agent</text>
+
+      <!-- ══════════════════════════════════════════
+           TIER 3 · WRAPPER
+           ══════════════════════════════════════════ -->
+      <rect x="10" y="294" width="192" height="126" rx="6"
+            fill="rgba(136,19,55,0.12)" stroke="#fb7185" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="22" y="312" fill="#fb7185" font-size="8" font-weight="600" font-family="JetBrains Mono,monospace">Security Controls</text>
+      <text x="22" y="328" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· Per-user API key</text>
+      <text x="22" y="343" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">  sk-hermes-&lt;hex&gt;</text>
+      <text x="22" y="358" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· Rate limit 20 req/min</text>
+      <text x="22" y="373" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· Input sanitisation</text>
+      <text x="22" y="388" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· Username sanitisation</text>
+      <text x="22" y="408" fill="#64748b" font-size="7.5" font-style="italic" font-family="JetBrains Mono,monospace">Validates &amp; routes all requests</text>
+
+      <rect x="212" y="296" width="1176" height="122" rx="8"
+            fill="rgba(6,78,59,0.38)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="800" y="326" fill="white" font-size="14" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">Hermes Wrapper</text>
+      <text x="800" y="344" fill="#34d399" font-size="10" text-anchor="middle" font-family="JetBrains Mono,monospace">FastAPI security gateway · port 5000 (loopback only)</text>
+      <text x="800" y="362" fill="#94a3b8" font-size="9" text-anchor="middle" font-family="JetBrains Mono,monospace">Authenticates Bearer sk-hermes-&lt;hex&gt; · rate-limits 20 req/min · sanitize_input() · sanitize_username()</text>
+      <text x="800" y="379" fill="#94a3b8" font-size="9" text-anchor="middle" font-family="JetBrains Mono,monospace">Reads X-OpenWebUI-User-Name → resolves hermes-{username} container via docker exec</text>
+      <text x="800" y="396" fill="#64748b" font-size="8.5" text-anchor="middle" font-family="JetBrains Mono,monospace">Container prefix enforcement (hermes-*) · ANSI strip · SSE streaming · /var/run/docker.sock mount</text>
+
+      <!-- ══════════════════════════════════════════
+           TIER 4 · HERMES AGENT CONTAINERS
+           ══════════════════════════════════════════ -->
+      <rect x="10" y="456" width="192" height="134" rx="6"
+            fill="rgba(136,19,55,0.12)" stroke="#fb7185" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="22" y="474" fill="#fb7185" font-size="8" font-weight="600" font-family="JetBrains Mono,monospace">Security Controls</text>
+      <text x="22" y="490" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· cap_drop: ALL</text>
+      <text x="22" y="505" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· cap_add: SETGID, SETUID,</text>
+      <text x="22" y="518" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">  DAC_OVERRIDE only</text>
+      <text x="22" y="532" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· no-new-privileges</text>
+      <text x="22" y="546" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· read_only filesystem</text>
+      <text x="22" y="560" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· tmpfs /tmp (512 MB)</text>
+      <text x="22" y="574" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· mem_limit: 4g</text>
+
+      <!-- Agent A  x=212 w=310 cx=367 -->
+      <rect x="212" y="458" width="310" height="114" rx="8"
+            fill="rgba(6,78,59,0.38)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="367" y="485" fill="white" font-size="11.5" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">hermes-engineer-a</text>
+      <text x="367" y="503" fill="#34d399" font-size="10" text-anchor="middle" font-family="JetBrains Mono,monospace">Hermes Agent</text>
+      <text x="367" y="520" fill="#94a3b8" font-size="8.5" text-anchor="middle" font-family="JetBrains Mono,monospace">nousresearch/hermes-agent:latest</text>
+      <text x="367" y="537" fill="#94a3b8" font-size="8" text-anchor="middle" font-family="JetBrains Mono,monospace">SKILL.md · memory · tools</text>
+      <text x="367" y="554" fill="#64748b" font-size="7.5" text-anchor="middle" font-family="JetBrains Mono,monospace">dashboard :11101 (loopback)</text>
+
+      <!-- Agent B  x=538 w=310 cx=693 -->
+      <rect x="538" y="458" width="318" height="114" rx="8"
+            fill="rgba(6,78,59,0.38)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="697" y="485" fill="white" font-size="11.5" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">hermes-engineer-b</text>
+      <text x="697" y="503" fill="#34d399" font-size="10" text-anchor="middle" font-family="JetBrains Mono,monospace">Hermes Agent</text>
+      <text x="697" y="520" fill="#94a3b8" font-size="8.5" text-anchor="middle" font-family="JetBrains Mono,monospace">nousresearch/hermes-agent:latest</text>
+      <text x="697" y="537" fill="#94a3b8" font-size="8" text-anchor="middle" font-family="JetBrains Mono,monospace">SKILL.md · memory · tools</text>
+      <text x="697" y="554" fill="#64748b" font-size="7.5" text-anchor="middle" font-family="JetBrains Mono,monospace">dashboard :11102 (loopback)</text>
+
+      <!-- Agent N  x=872 w=516 cx=1130  dashed = auto-provisioned -->
+      <rect x="872" y="458" width="516" height="114" rx="8"
+            fill="rgba(6,78,59,0.20)" stroke="#34d399" stroke-width="1.5" stroke-dasharray="7,4"/>
+      <text x="1130" y="485" fill="white" font-size="11.5" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">hermes-{username}</text>
+      <text x="1130" y="503" fill="#34d399" font-size="10" text-anchor="middle" font-family="JetBrains Mono,monospace">Hermes Agent</text>
+      <text x="1130" y="520" fill="#94a3b8" font-size="8.5" text-anchor="middle" font-family="JetBrains Mono,monospace">nousresearch/hermes-agent:latest</text>
+      <text x="1130" y="537" fill="#94a3b8" font-size="8" text-anchor="middle" font-family="JetBrains Mono,monospace">SKILL.md · memory · tools</text>
+      <text x="1130" y="556" fill="#64748b" font-size="7.5" font-style="italic" text-anchor="middle" font-family="JetBrains Mono,monospace">auto-provisioned on first login</text>
+
+      <!-- ══════════════════════════════════════════
+           HERMES-NET BUS BAR
+           ══════════════════════════════════════════ -->
+      <rect x="212" y="586" width="1176" height="20" rx="4"
+            fill="rgba(56,189,248,0.10)" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="800" y="600" fill="#38bdf8" font-size="9" font-weight="600" text-anchor="middle" font-family="JetBrains Mono,monospace">
+        hermes-net  ·  Docker bridge 172.20.0.0/16  ·  All containers share this isolated network
+      </text>
+
+      <!-- ══════════════════════════════════════════
+           TIER 5a · LITELLM  (left column x=212 w=522 cx=473)
+           ══════════════════════════════════════════ -->
+      <rect x="10" y="628" width="192" height="104" rx="6"
+            fill="rgba(136,19,55,0.12)" stroke="#fb7185" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="22" y="646" fill="#fb7185" font-size="8" font-weight="600" font-family="JetBrains Mono,monospace">Security Controls</text>
+      <text x="22" y="662" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· LITELLM_MASTER_KEY auth</text>
+      <text x="22" y="677" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· hermes-net only</text>
+      <text x="22" y="692" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· certbundle.crt TLS</text>
+      <text x="22" y="707" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">· PostgreSQL audit log</text>
+      <text x="22" y="724" fill="#64748b" font-size="7.5" font-style="italic" font-family="JetBrains Mono,monospace">Spend tracking per user</text>
+
+      <rect x="212" y="630" width="522" height="100" rx="8"
+            fill="rgba(76,29,149,0.38)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="473" y="660" fill="white" font-size="13" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">LiteLLM Proxy</text>
+      <text x="473" y="678" fill="#a78bfa" font-size="10" text-anchor="middle" font-family="JetBrains Mono,monospace">Model gateway · port 4000 (hermes-net only)</text>
+      <text x="473" y="695" fill="#94a3b8" font-size="8.5" text-anchor="middle" font-family="JetBrains Mono,monospace">Routes inference calls to Azure AI Foundry</text>
+      <text x="473" y="711" fill="#64748b" font-size="8" text-anchor="middle" font-family="JetBrains Mono,monospace">PostgreSQL (litellm-db)  ·  spend tracking  ·  request logging</text>
+
+      <!-- ══════════════════════════════════════════
+           TIER 5b · MCP SERVERS  (right column)
+           5 boxes each w=118 gap=12
+           x: 746  876  1006  1136  1264
+           cx: 805  935  1065  1195  1323
+           ══════════════════════════════════════════ -->
+      <text x="746" y="643" fill="#38bdf8" font-size="9" font-weight="600" font-family="JetBrains Mono,monospace">MCP Tool Servers  ·  on hermes-net  ·  HTTP</text>
+
+      <!-- 1: CVE :8081  cx=805 -->
+      <rect x="746" y="650" width="118" height="82" rx="6"
+            fill="rgba(8,51,68,0.55)" stroke="#38bdf8" stroke-width="1.3"/>
+      <text x="805" y="671" fill="white" font-size="9.5" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">CVE MCP</text>
+      <text x="805" y="689" fill="#38bdf8" font-size="11" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">:8081</text>
+      <text x="805" y="705" fill="#94a3b8" font-size="7.5" text-anchor="middle" font-family="JetBrains Mono,monospace">NVD / NIST</text>
+      <text x="805" y="720" fill="#64748b" font-size="7" text-anchor="middle" font-family="JetBrains Mono,monospace">cve-mcp</text>
+
+      <!-- 2: Framework :8082  cx=935 -->
+      <rect x="876" y="650" width="118" height="82" rx="6"
+            fill="rgba(8,51,68,0.55)" stroke="#38bdf8" stroke-width="1.3"/>
+      <text x="935" y="671" fill="white" font-size="9.5" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">Framework</text>
+      <text x="935" y="689" fill="#38bdf8" font-size="11" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">:8082</text>
+      <text x="935" y="705" fill="#94a3b8" font-size="7.5" text-anchor="middle" font-family="JetBrains Mono,monospace">MAS-TRM · PDPA</text>
+      <text x="935" y="720" fill="#64748b" font-size="7" text-anchor="middle" font-family="JetBrains Mono,monospace">framework-mcp</text>
+
+      <!-- 3: Graph :8083  cx=1065  dashed = pending admin consent -->
+      <rect x="1006" y="650" width="118" height="82" rx="6"
+            fill="rgba(8,51,68,0.35)" stroke="#38bdf8" stroke-width="1.3" stroke-dasharray="5,3"/>
+      <text x="1065" y="671" fill="white" font-size="9.5" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">Graph MCP</text>
+      <text x="1065" y="689" fill="#38bdf8" font-size="11" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">:8083</text>
+      <text x="1065" y="705" fill="#94a3b8" font-size="7.5" text-anchor="middle" font-family="JetBrains Mono,monospace">Microsoft Graph</text>
+      <text x="1065" y="720" fill="#fb7185" font-size="7" font-weight="600" text-anchor="middle" font-family="JetBrains Mono,monospace">⚠ consent pending</text>
+
+      <!-- 4: Gmail :8084  cx=1195 -->
+      <rect x="1136" y="650" width="118" height="82" rx="6"
+            fill="rgba(8,51,68,0.55)" stroke="#38bdf8" stroke-width="1.3"/>
+      <text x="1195" y="671" fill="white" font-size="9.5" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">Gmail MCP</text>
+      <text x="1195" y="689" fill="#38bdf8" font-size="11" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">:8084</text>
+      <text x="1195" y="705" fill="#94a3b8" font-size="7.5" text-anchor="middle" font-family="JetBrains Mono,monospace">Google Gmail</text>
+      <text x="1195" y="720" fill="#64748b" font-size="7" text-anchor="middle" font-family="JetBrains Mono,monospace">gmail-mcp</text>
+
+      <!-- 5: Mailpit :8085  cx=1323 -->
+      <rect x="1264" y="650" width="118" height="82" rx="6"
+            fill="rgba(8,51,68,0.55)" stroke="#38bdf8" stroke-width="1.3"/>
+      <text x="1323" y="671" fill="white" font-size="9.5" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">Mailpit MCP</text>
+      <text x="1323" y="689" fill="#38bdf8" font-size="11" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">:8085</text>
+      <text x="1323" y="705" fill="#94a3b8" font-size="7.5" text-anchor="middle" font-family="JetBrains Mono,monospace">On-prem SMTP</text>
+      <text x="1323" y="720" fill="#64748b" font-size="7" text-anchor="middle" font-family="JetBrains Mono,monospace">:8025 web UI</text>
+
+      <!-- ══════════════════════════════════════════
+           IPTABLES / UFW BAND
+           ══════════════════════════════════════════ -->
+      <rect x="10" y="748" width="1580" height="40" rx="6"
+            fill="rgba(136,19,55,0.22)" stroke="#fb7185" stroke-width="1.5"/>
+      <path d="M34 755 L34 776 Q34 784 44 787 Q54 784 54 776 L54 755 L44 751Z"
+            fill="rgba(251,113,133,0.2)" stroke="#fb7185" stroke-width="1.2"/>
+      <path d="M39 765 L42 769 L50 761" fill="none" stroke="#fb7185" stroke-width="1.5" stroke-linecap="round"/>
+      <text x="68" y="766" fill="#fb7185" font-size="10" font-weight="700" font-family="JetBrains Mono,monospace">UFW + iptables DOCKER-USER</text>
+      <text x="68" y="781" fill="#fb7185" font-size="9" font-family="JetBrains Mono,monospace">Outbound: HTTPS :443 to AzureCloud only · all other egress dropped  ·  Inbound: SSH :22 from AzureBastionSubnet only · deny all else</text>
+      <rect x="1350" y="753" width="230" height="28" rx="4"
+            fill="rgba(251,113,133,0.10)" stroke="#fb7185" stroke-width="1"/>
+      <text x="1465" y="766" fill="#fb7185" font-size="8" font-weight="600" text-anchor="middle" font-family="JetBrains Mono,monospace">fail2ban · auditd</text>
+      <text x="1465" y="778" fill="#94a3b8" font-size="7.5" text-anchor="middle" font-family="JetBrains Mono,monospace">MaxAuthTries 3 · UFW active</text>
+
+      <!-- ══════════════════════════════════════════
+           AZURE AI FOUNDRY  (left column)
+           ══════════════════════════════════════════ -->
+      <rect x="232" y="848" width="480" height="126" rx="8"
+            fill="rgba(120,53,15,0.40)" stroke="#fbbf24" stroke-width="2"/>
+      <text x="472" y="876" fill="white" font-size="14" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">Claude Sonnet 4.6</text>
+      <text x="472" y="894" fill="#fbbf24" font-size="10" text-anchor="middle" font-family="JetBrains Mono,monospace">Anthropic via Azure AI Foundry</text>
+      <text x="472" y="911" fill="#94a3b8" font-size="9" text-anchor="middle" font-family="JetBrains Mono,monospace">General-purpose agentic reasoning</text>
+      <text x="472" y="927" fill="#64748b" font-size="8" text-anchor="middle" font-family="JetBrains Mono,monospace">model: claude-sonnet-4-6  ·  api_base: AZURE_ANTHROPIC_API_BASE</text>
+      <text x="472" y="945" fill="#22d3ee" font-size="9.5" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">★ Only model used by Hermes Agent</text>
+      <text x="472" y="963" fill="#64748b" font-size="7.5" text-anchor="middle" font-family="JetBrains Mono,monospace">PostgreSQL (litellm-db) logs every call for spend tracking</text>
+
+      <!-- ══════════════════════════════════════════
+           EXTERNAL APIS  (right column, 3 boxes)
+           NVD   x=750  w=188  cx=844   aligned with CVE   cx=805
+           MS    x=958  w=200  cx=1058  aligned with Graph  cx=1065
+           Google x=1178 w=196  cx=1276  aligned with Gmail  cx=1195
+           ══════════════════════════════════════════ -->
+
+      <!-- NVD / NIST -->
+      <rect x="750" y="848" width="188" height="122" rx="8"
+            fill="rgba(56,189,248,0.10)" stroke="#38bdf8" stroke-width="1.3"/>
+      <text x="844" y="874" fill="white" font-size="11" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">NVD / NIST</text>
+      <text x="844" y="892" fill="#38bdf8" font-size="9.5" text-anchor="middle" font-family="JetBrains Mono,monospace">CVE Database</text>
+      <text x="844" y="909" fill="#94a3b8" font-size="8.5" text-anchor="middle" font-family="JetBrains Mono,monospace">REST API (no auth)</text>
+      <text x="844" y="926" fill="#94a3b8" font-size="8" text-anchor="middle" font-family="JetBrains Mono,monospace">Vulnerability data</text>
+      <text x="844" y="946" fill="#64748b" font-size="8" font-weight="600" text-anchor="middle" font-family="JetBrains Mono,monospace">← CVE MCP :8081</text>
+
+      <!-- Microsoft Graph -->
+      <rect x="958" y="848" width="200" height="122" rx="8"
+            fill="rgba(56,189,248,0.10)" stroke="#38bdf8" stroke-width="1.3" stroke-dasharray="6,3"/>
+      <text x="1058" y="874" fill="white" font-size="11" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">Microsoft Graph</text>
+      <text x="1058" y="892" fill="#38bdf8" font-size="9.5" text-anchor="middle" font-family="JetBrains Mono,monospace">Outlook · Teams · Calendar</text>
+      <text x="1058" y="909" fill="#94a3b8" font-size="8.5" text-anchor="middle" font-family="JetBrains Mono,monospace">OAuth2 device-code flow</text>
+      <text x="1058" y="925" fill="#fb7185" font-size="8.5" font-weight="600" text-anchor="middle" font-family="JetBrains Mono,monospace">⚠ Pending admin consent</text>
+      <text x="1058" y="941" fill="#94a3b8" font-size="7.5" text-anchor="middle" font-family="JetBrains Mono,monospace">Code complete; awaiting approval</text>
+      <text x="1058" y="959" fill="#64748b" font-size="8" font-weight="600" text-anchor="middle" font-family="JetBrains Mono,monospace">← Graph MCP :8083</text>
+
+      <!-- Google Workspace / Gmail -->
+      <rect x="1178" y="848" width="196" height="122" rx="8"
+            fill="rgba(56,189,248,0.10)" stroke="#38bdf8" stroke-width="1.3"/>
+      <text x="1276" y="874" fill="white" font-size="11" font-weight="700" text-anchor="middle" font-family="JetBrains Mono,monospace">Google Workspace</text>
+      <text x="1276" y="892" fill="#38bdf8" font-size="9.5" text-anchor="middle" font-family="JetBrains Mono,monospace">Gmail API</text>
+      <text x="1276" y="909" fill="#94a3b8" font-size="8.5" text-anchor="middle" font-family="JetBrains Mono,monospace">OAuth2 device-code flow</text>
+      <text x="1276" y="926" fill="#94a3b8" font-size="8" text-anchor="middle" font-family="JetBrains Mono,monospace">Email read / send / search</text>
+      <text x="1276" y="946" fill="#64748b" font-size="8" font-weight="600" text-anchor="middle" font-family="JetBrains Mono,monospace">← Gmail MCP :8084</text>
+
+      <!-- ══════════════════════════════════════════
+           LEGEND
+           ══════════════════════════════════════════ -->
+      <rect x="10" y="1014" width="1440" height="54" rx="6"
+            fill="rgba(15,23,42,0.40)" stroke="#1e293b" stroke-width="1"/>
+
+      <text x="24" y="1033" fill="#64748b" font-size="9" font-weight="600" font-family="JetBrains Mono,monospace">LEGEND</text>
+
+      <rect x="90"  y="1024" width="12" height="8" rx="2" fill="rgba(30,41,59,0.55)" stroke="#94a3b8" stroke-width="1"/>
+      <text x="108" y="1032" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">Client</text>
+      <rect x="160" y="1024" width="12" height="8" rx="2" fill="rgba(8,51,68,0.45)" stroke="#22d3ee" stroke-width="1"/>
+      <text x="178" y="1032" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">UI layer</text>
+      <rect x="232" y="1024" width="12" height="8" rx="2" fill="rgba(6,78,59,0.38)" stroke="#34d399" stroke-width="1"/>
+      <text x="250" y="1032" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">Gateway / Agent</text>
+      <rect x="362" y="1024" width="12" height="8" rx="2" fill="rgba(8,51,68,0.55)" stroke="#38bdf8" stroke-width="1"/>
+      <text x="380" y="1032" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">MCP Tool Server</text>
+      <rect x="484" y="1024" width="12" height="8" rx="2" fill="rgba(76,29,149,0.38)" stroke="#a78bfa" stroke-width="1"/>
+      <text x="502" y="1032" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">LLM Gateway</text>
+      <rect x="590" y="1024" width="12" height="8" rx="2" fill="rgba(120,53,15,0.40)" stroke="#fbbf24" stroke-width="1"/>
+      <text x="608" y="1032" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">Azure AI Model</text>
+      <rect x="706" y="1024" width="12" height="8" rx="2" fill="rgba(56,189,248,0.10)" stroke="#38bdf8" stroke-width="1"/>
+      <text x="724" y="1032" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">External API</text>
+      <rect x="808" y="1024" width="12" height="8" rx="2" fill="rgba(136,19,55,0.12)" stroke="#fb7185" stroke-width="1" stroke-dasharray="3,2"/>
+      <text x="826" y="1032" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">Security Control</text>
+
+      <line x1="90"  y1="1057" x2="104" y2="1057" stroke="#34d399" stroke-width="1.5" marker-end="url(#ar-em)"/>
+      <text x="110" y="1060" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">Data / LLM flow</text>
+      <line x1="210" y1="1057" x2="224" y2="1057" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ar-sk)"/>
+      <text x="230" y="1060" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">MCP tool call / VS Code direct</text>
+      <line x1="392" y1="1057" x2="406" y2="1057" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#ar-vi)"/>
+      <text x="412" y="1060" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">LLM inference</text>
+      <line x1="502" y1="1057" x2="516" y2="1057" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#ar-am)"/>
+      <text x="522" y="1060" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">Cloud egress TLS :443</text>
+      <rect x="652" y="1053" width="12" height="8" rx="2" fill="rgba(6,78,59,0.20)" stroke="#34d399" stroke-width="1" stroke-dasharray="4,2"/>
+      <text x="670" y="1060" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">Auto-provisioned</text>
+      <rect x="776" y="1053" width="12" height="8" rx="2" fill="rgba(8,51,68,0.35)" stroke="#38bdf8" stroke-width="1" stroke-dasharray="4,2"/>
+      <text x="794" y="1060" fill="#94a3b8" font-size="8" font-family="JetBrains Mono,monospace">Pending admin consent</text>
+
+    </svg>
+  </div>
+
+  <!-- Info Cards -->
+  <div class="cards">
+    <div class="card">
+      <div class="card-header"><div class="dot" style="background:#fb7185"></div><h3>5-Layer Defence-in-Depth</h3></div>
+      <ul>
+        <li>• Layer 1 — Azure NSG: deny-all inbound, Bastion SSH only</li>
+        <li>• Layer 2 — OS: SSH hardening, UFW firewall, fail2ban, auditd</li>
+        <li>• Layer 3 — Docker: cap_drop ALL, read_only FS, tmpfs, mem_limit</li>
+        <li>• Layer 4 — LiteLLM: master key auth, hermes-net only (:4000)</li>
+        <li>• Layer 5 — Wrapper: sk-hermes-&lt;hex&gt; per user, 20 req/min, sanitise</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="dot" style="background:#34d399"></div><h3>Request Flow</h3></div>
+      <ul>
+        <li>• User → OpenWebUI (:3000) → Wrapper (:5000)</li>
+        <li>• Wrapper authenticates key + resolves hermes-{username} container</li>
+        <li>• Hermes Agent runs SKILL.md, calls MCP servers for tools</li>
+        <li>• Agent calls LiteLLM (:4000) for LLM inference</li>
+        <li>• LiteLLM routes to Claude Sonnet 4.6 on Azure AI Foundry</li>
+        <li>• Response streamed back: Agent → Wrapper → OpenWebUI → User</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="dot" style="background:#38bdf8"></div><h3>MCP Tool Servers</h3></div>
+      <ul>
+        <li>• :8081 hermes-cve-mcp — CVE / NVD vulnerability data</li>
+        <li>• :8082 hermes-framework-mcp — MAS-TRM, PDPA, ISO 27001 (local data)</li>
+        <li>• :8083 hermes-graph-mcp — Microsoft Graph (⚠ pending admin consent)</li>
+        <li>• :8084 hermes-gmail-mcp — Google Gmail OAuth2</li>
+        <li>• :8085 hermes-mailpit-mcp — On-prem SMTP simulation</li>
+        <li>• :8025 Mailpit web UI · seed_emails.py for test data</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="dot" style="background:#fbbf24"></div><h3>AI Model</h3></div>
+      <ul>
+        <li>• Claude Sonnet 4.6 — only model used by Hermes Agent</li>
+        <li>• Hosted on Azure AI Foundry (Anthropic endpoint)</li>
+        <li>• Accessed via LiteLLM proxy on hermes-net (:4000)</li>
+        <li>• Corporate certbundle.crt for Azure endpoint TLS</li>
+        <li>• Every call logged to PostgreSQL (litellm-db)</li>
+        <li>• AZURE_ANTHROPIC_API_BASE + AZURE_API_KEY auth</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="footer">
+    Hermes Agentic AI Platform &nbsp;·&nbsp; Deployment Architecture &nbsp;·&nbsp; [Organisation] &nbsp;·&nbsp; Aug 2026
+  </p>
+</div>
+</body>
+</html>

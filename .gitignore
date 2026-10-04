@@ -1,0 +1,41 @@
+# Secrets and credentials
+api-keys.json
+.api-key
+.env
+*.env
+tokens/
+msal_cache.json
+tokens.db
+client_secrets.json
+credentials.json
+certbundle.crt
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+.venv/
+venv/
+hermes-env/
+
+# Backup files
+*.bak
+*.bak2
+~$*
+
+# Node
+node_modules/
+*.vsix
+
+# Editor
+.DS_Store
+Thumbs.db
+~WRL*.tmp
+
+# Large media
+docs/recordings/
+
+# Node modules
+node_modules/
+docs/Tan_Dan_Feng_Final_Presentation.pptx
